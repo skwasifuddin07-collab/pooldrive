@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PoolDrive</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#e9eff1;--panel:#f8fafb;--ink:#12303a;--mute:#5b7480;--line:#cdd9de;--accent:#0f6b75;--accent-ink:#fff;--c-mega:#c8443a;--c-pcloud:#2f7fd1;--c-koofr:#3e9b6a;--c-box:#c98f17;--free:#d5e0e4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1c21;--panel:#172a31;--ink:#e3eef1;--mute:#8fa8b2;--line:#27424b;--accent:#4fc0cc;--accent-ink:#0b1a1e;--free:#22383f}}
+:root[data-theme="dark"]{--bg:#0f1c21;--panel:#172a31;--ink:#e3eef1;--mute:#8fa8b2;--line:#27424b;--accent:#4fc0cc;--accent-ink:#0b1a1e;--free:#22383f}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:400 16px/1.5 Figtree,system-ui,sans-serif}
+h1,h2,h3{font-family:"Bricolage Grotesque",Georgia,serif;margin:0;line-height:1.1}
+.app{max-width:760px;margin:0 auto;padding:20px 16px 96px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px}
+header h1{font-size:1.5rem;font-weight:700}
+header span{color:var(--mute);font-size:.875rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.big{font:700 clamp(2.4rem,9vw,3.6rem)/1 "Bricolage Grotesque",Georgia,serif}
+.big small{font-size:.4em;font-weight:500;color:var(--mute);margin-left:6px}
+.sub{color:var(--mute);margin:6px 0 16px}
+.bar{display:flex;height:34px;border-radius:8px;overflow:hidden;background:var(--free);gap:2px}
+.bar i{display:block;height:100%;transition:width .4s}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:.875rem;color:var(--mute)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .grow{flex:1;min-width:0}
+.row b{font-weight:600}
+.row small{display:block;color:var(--mute)}
+.mini{height:6px;border-radius:3px;background:var(--free);margin-top:6px;overflow:hidden}
+.mini i{display:block;height:100%}
+button,select{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:transparent;border-radius:999px;padding:8px 16px;cursor:pointer;min-height:40px}
+.btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,select:focus-visible,nav button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.note{font-size:.875rem;color:var(--mute);margin:0 0 14px}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:999px;color:#fff;white-space:nowrap}
+.empty{text-align:center;color:var(--mute);padding:28px 8px}
+select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:40px}
+input{width:100%;font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px;margin:6px 0 12px}
+input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.err{color:#c8443a;margin:0 0 12px}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;max-width:190px;background:none;border:0;padding:14px 4px;cursor:pointer;color:var(--mute);font-weight:500}
+nav button[aria-current="page"]{color:var(--accent);font-weight:600;box-shadow:inset 0 3px 0 var(--accent)}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>PoolDrive</h1><span id="hdr"></span></header>
+  <main id="view"></main>
+</div>
+<nav id="nav">
+  <button data-v="home">Home</button><button data-v="files">Files</button><button data-v="accounts">Accounts</button><button data-v="settings">Settings</button>
+</nav>
+<script src="https://cdn.jsdelivr.net/npm/megajs@1.3.10/dist/main.browser-umd.js"></script>
+<script>
+var SERVICES=[
+ {id:"mega",name:"MEGA",cap:20,used:6.4,color:"var(--c-mega)"},
+ {id:"pcloud",name:"pCloud",cap:10,used:2.1,color:"var(--c-pcloud)"},
+ {id:"koofr",name:"Koofr",cap:10,used:3.8,color:"var(--c-koofr)"},
+ {id:"box",name:"Box",cap:10,used:0.9,color:"var(--c-box)"}
+];
+var SAMPLE=[
+ {n:"Passport-scan.pdf",s:"mega",sz:"1.2 MB"},{n:"Eid-photos.zip",s:"koofr",sz:"842 MB"},
+ {n:"Lecture-notes.docx",s:"pcloud",sz:"3.4 MB"},{n:"Trip-video.mp4",s:"mega",sz:"1.6 GB"},
+ {n:"Budget.xlsx",s:"box",sz:"212 KB"}
+];
+var state={connected:{mega:true,pcloud:true,koofr:false,box:false},wifi:true,rule:"most-free"};
+try{var saved=JSON.parse(localStorage.getItem("pooldrive")||"null");if(saved){state=saved}}catch(e){}
+function save(){try{localStorage.setItem("pooldrive",JSON.stringify(state))}catch(e){}}
+function gb(n){return (Math.round(n*10)/10)+" GB"}
+var rt={mega:null,pcloud:null,koofr:null},ui={form:false,pform:false,kform:false,busy:false,pbusy:false,kbusy:false,pcode:false,err:"",perr:"",kerr:"",email:"",pemail:"",kemail:"",msg:""};
+function isOn(id){return id==="mega"?!!rt.mega:id==="pcloud"?!!rt.pcloud:id==="koofr"?!!rt.koofr:!!state.connected[id]}
+function isReal(id){return id==="mega"||id==="pcloud"||id==="koofr"}
+function active(){return SERVICES.filter(function(s){return isOn(s.id)})}
+function realFiles(){return (rt.mega?rt.mega.files:[]).concat(rt.pcloud?rt.pcloud.files:[],rt.koofr?rt.koofr.files:[])}
+function realNames(){return SERVICES.filter(function(x){return isReal(x.id)&&rt[x.id]}).map(function(x){return x.name})}
+function fmt(b){if(b>=1073741824)return (Math.round(b/1073741824*10)/10)+" GB";if(b>=1048576)return Math.round(b/1048576)+" MB";return Math.max(1,Math.round(b/1024))+" KB"}
+function walk(n,out){(n.children||[]).forEach(function(c){if(c.directory){walk(c,out)}else{out.push({n:c.name||"(unnamed)",s:"mega",sz:fmt(c.size||0),node:c})}})}
+async function megaLogin(email,pw){
+ ui.busy=true;ui.err="";render();
+ try{
+  var st=await new mega.Storage({email:email,password:pw,userAgent:null}).ready;
+  var info=await st.getAccountInfo();
+  var out=[];walk(st.root,out);
+  rt.mega={st:st,files:out.slice(0,300),total:out.length};
+  SERVICES[0].cap=info.spaceTotal/1073741824;SERVICES[0].used=info.spaceUsed/1073741824;
+  ui.form=false;
+ }catch(e){ui.err=(e&&e.message)?e.message:"Login failed. Check your email and password."}
+ ui.busy=false;render();
+}
+async function pcCall(host,method,params,post){
+ var q=new URLSearchParams(params).toString(),r;
+ if(post){r=await fetch("https://"+host+"/"+method,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:q})}
+ else{r=await fetch("https://"+host+"/"+method+"?"+q)}
+ return r.json();
+}
+function pcWalk(items,out){items.forEach(function(c){if(c.isfolder){pcWalk(c.contents||[],out)}else{out.push({n:c.name||"(unnamed)",s:"pcloud",sz:fmt(c.size||0),fileid:c.fileid})}})}
+function pcHint(d){
+ var r=d.result,e=(d.error||"");
+ if(r===2000||/log in failed/i.test(e))return "pCloud rejected the login (code "+r+"). Common reasons: (1) the account was created with Google/Facebook/Apple, so it has no real password - set one in pCloud > Settings > Password first; (2) two-factor is on and the code was missing; (3) wrong email or password (try logging in at my.pcloud.com with the same details).";
+ if(r===4000||r===2297||r===2298||/tfa|two.?factor|verif|code/i.test(e))return null;
+ return (e||"pCloud error")+" (code "+r+")";
+}
+async function pcLogin(email,pw,code){
+ ui.pbusy=true;ui.perr="";ui.pcode=false;render();
+ try{
+  var host="api.pcloud.com",p={getauth:1,logout:1,username:email,password:pw};
+  if(code){p.code=code;p.tfa_code=code;p.tfacode=code}
+  var d=await pcCall(host,"userinfo",p,true);
+  if(d.result!==0&&d.result!==undefined){var d2=await pcCall("eapi.pcloud.com","userinfo",p,true);if(d2.result===0||d.result===2000){host="eapi.pcloud.com";d=d2}}
+  if(d.result!==0){
+   var h=pcHint(d);
+   if(h===null){ui.pcode=true;throw new Error(code?"That code was not accepted (code "+d.result+": "+(d.error||"")+"). Check it and type your password again too.":"pCloud wants a verification code (code "+d.result+": "+(d.error||"")+"). Enter it, type your password again, and log in.")}
+   throw new Error(h)}
+  var l=await pcCall(host,"listfolder",{auth:d.auth,folderid:0,recursive:1});
+  if(l.result!==0)throw new Error((l.error||"pCloud error")+" (code "+l.result+")");
+  var out=[];pcWalk((l.metadata&&l.metadata.contents)||[],out);
+  rt.pcloud={auth:d.auth,host:host,files:out.slice(0,300),total:out.length};
+  SERVICES[1].cap=d.quota/1073741824;SERVICES[1].used=d.usedquota/1073741824;
+  ui.pform=false;
+ }catch(e){ui.perr=(e instanceof TypeError)?"Could not reach pCloud from this page ("+(e.message||"network error")+"). The browser may be blocking it (CORS), an extension/adblock may be blocking it, or you are offline. Page opened from: "+(location.protocol==="file:"?"a file on this device":location.origin):((e&&e.message)||"Login failed. Check your email and password.")}
+ ui.pbusy=false;render();
+}
+function kfAuth(email,pw){return "Basic "+btoa(unescape(encodeURIComponent(email+":"+pw)))}
+async function kfCall(auth,path){
+ var r=await fetch("https://app.koofr.net"+path,{headers:{"Authorization":auth}});
+ if(!r.ok){
+  var t="";try{t=(await r.text()).slice(0,200)}catch(x){}
+  if(r.status===401||r.status===403)throw new Error("Koofr said the login is wrong (HTTP "+r.status+"). Koofr no longer accepts your normal password for apps like this. You must use an APP PASSWORD: Koofr > profile icon > Preferences > Password > App passwords > Generate. Also make sure your browser did not auto-fill your normal password into the box. "+(t?"["+t+"]":""));
+  throw new Error("Koofr replied HTTP "+r.status+(t?": "+t:"")+" | page opened from: "+(location.protocol==="file:"?"a file on this device":location.origin));
+ }
+ return r.json();
+}
+async function kfToken(email,pw){
+ try{
+  var r=await fetch("https://app.koofr.net/token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pw})});
+  if(!r.ok)return null;
+  var tk=r.headers.get("X-Koofr-Token");
+  return tk?("Token token="+tk):null;
+ }catch(x){return null}
+}
+async function kfList(auth,mid){
+ var out=[],queue=["/"],calls=0,partial=false;
+ while(queue.length){
+  if(calls>=40||out.length>=300){partial=true;break}
+  var p=queue.shift();calls++;
+  var d=await kfCall(auth,"/api/v2/mounts/"+mid+"/files/list?path="+encodeURIComponent(p));
+  (d.files||[]).forEach(function(f){
+   var full=(p==="/"?"":p)+"/"+f.name;
+   if(f.type==="dir"){queue.push(full)}else{out.push({n:f.name||"(unnamed)",s:"koofr",sz:fmt(f.size||0),path:full})}
+  });
+ }
+ return {files:out.slice(0,300),total:out.length,partial:partial||queue.length>0};
+}
+async function kfLogin(email,pw){
+ ui.kbusy=true;ui.kerr="";render();
+ try{
+  pw=pw.replace(/\s+/g,"");
+  var auth=kfAuth(email,pw),m;
+  try{m=await kfCall(auth,"/api/v2/mounts")}
+  catch(e1){
+   if(e1 instanceof TypeError)throw e1;
+   var ta=await kfToken(email,pw);
+   if(!ta)throw e1;
+   auth=ta;m=await kfCall(auth,"/api/v2/mounts");
+  }
+  var list=m.mounts||[];
+  var mt=list.filter(function(x){return x.isPrimary})[0]||list[0];
+  if(!mt)throw new Error("No storage found in this Koofr account.");
+  var l=await kfList(auth,mt.id);
+  rt.koofr={auth:auth,mount:mt.id,files:l.files,total:l.total,partial:l.partial};
+  SERVICES[2].cap=(mt.spaceTotal||0)/1073741824;SERVICES[2].used=(mt.spaceUsed||0)/1073741824;
+  ui.kform=false;
+ }catch(e){ui.kerr=(e instanceof TypeError)?"Could not reach Koofr from this page ("+(e.message||"network error")+"). The browser may be blocking it (CORS), an extension may be blocking it, or you are offline. Page opened from: "+(location.protocol==="file:"?"a file on this device":location.origin):((e&&e.message)||"Login failed.")}
+ ui.kbusy=false;render();
+}
+function setStatus(t){ui.msg=t;var el=document.getElementById("status");if(el)el.textContent=t}
+async function uploadFiles(list){
+ if(!rt.mega){setStatus("Log in to MEGA in Accounts first.");return}
+ var st=rt.mega.st;
+ for(var i=0;i<list.length;i++){
+  var f=list[i],free=(SERVICES[0].cap-SERVICES[0].used)*1073741824;
+  if(f.size>free){setStatus(f.name+" is bigger than the free space left on MEGA.");return}
+  try{
+   var up=st.upload({name:f.name,size:f.size}),done=0,CH=1048576;
+   while(done<f.size){
+    var buf=new Uint8Array(await f.slice(done,done+CH).arrayBuffer());
+    if(!up.write(buf)){await new Promise(function(r){up.once("drain",r)})}
+    done+=buf.length;
+    setStatus("Uploading "+f.name+" ("+(i+1)+" of "+list.length+"): "+Math.round(done/f.size*100)+"%");
+   }
+   up.end();
+   setStatus("Finishing "+f.name+"\u2026");
+   var node=await up.complete;
+   rt.mega.files.unshift({n:node.name||f.name,s:"mega",sz:fmt(f.size),node:node});rt.mega.total++;
+   var info=await st.getAccountInfo();SERVICES[0].used=info.spaceUsed/1073741824;
+  }catch(e){setStatus("Upload failed: "+((e&&e.message)||"unknown error"));render();return}
+ }
+ setStatus("Upload finished.");render();
+}
+async function downloadFile(i){
+ var it=realFiles()[i];if(!it)return;
+ if(it.s==="pcloud"){
+  setStatus("Getting download link for "+it.n+"\u2026");
+  try{
+   var g=await pcCall(rt.pcloud.host,"getfilelink",{auth:rt.pcloud.auth,fileid:it.fileid,forcedownload:1});
+   if(g.result!==0)throw new Error(g.error||("pCloud error "+g.result));
+   var a2=document.createElement("a");a2.href="https://"+g.hosts[0]+g.path;a2.download=it.n;document.body.appendChild(a2);a2.click();a2.remove();
+   setStatus("Download started for "+it.n+".");
+  }catch(e){setStatus("Download failed: "+((e&&e.message)||"unknown error"))}
+  return;
+ }
+ if(it.s==="koofr"){
+  setStatus("Downloading "+it.n+"\u2026 large files can take a while.");
+  try{
+   var r=await fetch("https://app.koofr.net/content/api/v2/mounts/"+rt.koofr.mount+"/files/get?path="+encodeURIComponent(it.path),{headers:{"Authorization":rt.koofr.auth}});
+   if(!r.ok)throw new Error("Koofr error "+r.status);
+   var b=await r.blob(),u=URL.createObjectURL(b),a3=document.createElement("a");
+   a3.href=u;a3.download=it.n;document.body.appendChild(a3);a3.click();a3.remove();
+   setTimeout(function(){URL.revokeObjectURL(u)},60000);
+   setStatus("Downloaded "+it.n+".");
+  }catch(e){setStatus("Download failed: "+((e&&e.message)||"unknown error"))}
+  return;
+ }
+ setStatus("Downloading "+it.n+"\u2026 large files can take a while.");
+ try{
+  var data=await it.node.downloadBuffer({});
+  var url=URL.createObjectURL(new Blob([data]));
+  var a=document.createElement("a");a.href=url;a.download=it.n;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},60000);
+  setStatus("Downloaded "+it.n+".");
+ }catch(e){setStatus("Download failed: "+((e&&e.message)||"unknown error"))}
+}
+function esc(t){return String(t).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+
+function home(){
+ var a=active(),cap=0,used=0;a.forEach(function(s){cap+=s.cap;used+=s.used});
+ if(!a.length){return '<div class="panel empty"><h2>No storage connected yet</h2><p>Open Accounts and connect a service to start building your pool.</p></div>'}
+ var bar=a.map(function(s){return '<i title="'+s.name+'" style="width:'+(s.used/cap*100)+'%;background:'+s.color+'"></i>'}).join("");
+ var leg=a.map(function(s){return '<span><span class="dot" style="background:'+s.color+'"></span>'+s.name+' '+gb(s.used)+'</span>'}).join("");
+ var rows=a.map(function(s){return '<div class="row"><div class="grow"><b>'+s.name+'</b><small>'+gb(s.cap-s.used)+' free of '+gb(s.cap)+'</small><div class="mini"><i style="width:'+(s.used/s.cap*100)+'%;background:'+s.color+'"></i></div></div></div>'}).join("");
+ var best=a.slice().sort(function(x,y){return (y.cap-y.used)-(x.cap-x.used)})[0];
+ return '<div class="panel"><div class="big">'+gb(cap-used)+'<small>free of '+gb(cap)+'</small></div><p class="sub">Pooled across '+a.length+' service'+(a.length>1?'s':'')+'. '+(function(){var r=realNames();return r.length?'Real numbers: '+r.join(", ")+'. Any others are samples.':'Sample numbers until you log in to a service.'})()+'</p><div class="bar" role="img" aria-label="Storage used per service">'+bar+'</div><div class="legend">'+leg+'</div></div>'+
+ '<div class="panel"><h3 style="margin-bottom:6px">Next upload goes to '+best.name+'</h3><p class="note">It has the most free space right now.</p>'+rows+'</div>';
+}
+function files(){
+ var real=realFiles();
+ var list=real.concat(SAMPLE.filter(function(f){return !isReal(f.s)&&state.connected[f.s]}));
+ if(!list.length&&!realNames().length){return '<div class="panel empty"><h2>No files to show</h2><p>Connect a service in Accounts to see its files here.</p></div>'}
+ var rows=list.map(function(f,i){
+  var s=SERVICES.filter(function(x){return x.id===f.s})[0];
+  var dl=i<real.length?'<button class="btn" data-dl="'+i+'" aria-label="Download '+esc(f.n)+'">Download</button>':'';
+  return '<div class="row"><div class="grow"><b style="overflow-wrap:anywhere">'+esc(f.n)+'</b><small>'+esc(f.sz)+'</small></div><span class="tag" style="background:'+s.color+'">'+s.name+'</span>'+dl+'</div>';
+ }).join("");
+ var top='<div class="row" style="padding-top:0"><div class="grow"><b>Add files</b><small>'+(rt.mega?'Goes to MEGA, the only real service so far':'Log in to MEGA first')+'</small></div><button class="btn on" data-up="1"'+(rt.mega?'':' disabled')+'>Upload</button><input type="file" id="pick" multiple hidden></div><p class="note" id="status" aria-live="polite">'+esc(ui.msg||"")+'</p>';
+var msg=realNames().length?'Real files: '+SERVICES.filter(function(x){return isReal(x.id)&&rt[x.id]}).map(function(x){var r=rt[x.id];return x.name+(r.partial?' (first '+r.files.length+' found)':(r.total>300?' (first 300 of '+r.total+')':''))}).join(", ")+'. Other services still show samples.':'Sample files. Log in to a service in Accounts to see real ones.';
+ return '<div class="panel">'+top+'<p class="note">'+msg+'</p>'+(rows||'<p class="empty">No files yet. Upload your first one.</p>')+'</div>';
+}
+function accounts(){
+ var rows=SERVICES.map(function(s){
+  var on=isOn(s.id);
+  var label=s.id==="mega"?(rt.mega?"Disconnect":(ui.form?"Cancel":"Log in")):s.id==="pcloud"?(rt.pcloud?"Disconnect":(ui.pform?"Cancel":"Log in")):s.id==="koofr"?(rt.koofr?"Disconnect":(ui.kform?"Cancel":"Log in")):(on?"Connected":"Connect");
+  var who=s.id==="mega"?(rt.mega?' \u00b7 logged in as '+esc(ui.email):''):s.id==="pcloud"?(rt.pcloud?' \u00b7 logged in as '+esc(ui.pemail):''):s.id==="koofr"?(rt.koofr?' \u00b7 logged in as '+esc(ui.kemail):''):' \u00b7 simulated';
+  return '<div class="row"><span class="dot" style="background:'+s.color+';width:14px;height:14px"></span><div class="grow"><b>'+s.name+'</b><small>'+gb(s.cap)+' free plan'+who+'</small></div><button class="btn'+(on?' on':'')+'" data-acc="'+s.id+'" aria-pressed="'+on+'">'+label+'</button></div>';
+ }).join("");
+ var form=(ui.form&&!rt.mega)?'<div class="panel"><h3 style="margin-bottom:10px">Log in to MEGA</h3><form id="megaform"><label>Email<input name="email" type="email" autocomplete="username" required value="'+esc(ui.email)+'"></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label>'+(ui.err?'<p class="err" role="alert">'+esc(ui.err)+'</p>':'')+'<button class="btn on" type="submit"'+(ui.busy?' disabled':'')+'>'+(ui.busy?'Logging in\u2026':'Log in to MEGA')+'</button><p class="note" style="margin-top:12px">Your details are used inside this page and sent only to MEGA. They are not saved. Accounts with two-factor login are not supported yet.</p></form></div>':'';
+ var pform=(ui.pform&&!rt.pcloud)?'<div class="panel"><h3 style="margin-bottom:10px">Log in to pCloud</h3><form id="pcform"><label>Email<input name="email" type="email" autocomplete="username" required value="'+esc(ui.pemail)+'"></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label>'+'<label>Verification code (only if pCloud asks)<input name="code" type="text" inputmode="numeric" autocomplete="one-time-code"'+(ui.pcode?' autofocus':'')+'></label>'+(ui.perr?'<p class="err" role="alert">'+esc(ui.perr)+'</p>':'')+'<button class="btn on" type="submit"'+(ui.pbusy?' disabled':'')+'>'+(ui.pbusy?'Logging in\u2026':'Log in to pCloud')+'</button><p class="note" style="margin-top:12px">Your details are sent only to pCloud and are not saved. Works for US and EU accounts. If your account uses a verification code, enter it in the code box.</p></form></div>':'';
+ var kform=(ui.kform&&!rt.koofr)?'<div class="panel"><h3 style="margin-bottom:10px">Log in to Koofr</h3><p class="note">Use an app password, not your normal password. In Koofr: Preferences, Password, Application passwords, Generate.</p><form id="kform"><label>Email<input name="email" type="email" autocomplete="username" required value="'+esc(ui.kemail)+'"></label><label>App password<input name="password" type="password" autocomplete="new-password" required></label>'+(ui.kerr?'<p class="err" role="alert">'+esc(ui.kerr)+'</p>':'')+'<button class="btn on" type="submit"'+(ui.kbusy?' disabled':'')+'>'+(ui.kbusy?'Logging in\u2026':'Log in to Koofr')+'</button><p class="note" style="margin-top:12px">Your details are sent only to Koofr and are not saved.</p></form></div>':'';
+ return '<div class="panel"><p class="note">MEGA, pCloud and Koofr use real logins. Box is still simulated.</p>'+rows+'</div>'+form+pform+kform;
+}
+function settings(){
+ return '<div class="panel"><div class="row"><div class="grow"><b>Upload on Wi-Fi only</b><small>Saves your mobile data</small></div><button class="btn'+(state.wifi?' on':'')+'" id="wifi" aria-pressed="'+state.wifi+'">'+(state.wifi?'On':'Off')+'</button></div>'+
+ '<div class="row"><div class="grow"><b>Where new files go</b><small>Rule used when you upload</small></div><select id="rule"><option value="most-free"'+(state.rule==="most-free"?' selected':'')+'>Most free space</option><option value="fill-first"'+(state.rule==="fill-first"?' selected':'')+'>Fill one service first</option></select></div></div>';
+}
+var VIEWS={home:home,files:files,accounts:accounts,settings:settings};
+function render(){
+ var v=(location.hash||"#home").slice(1);if(!VIEWS[v])v="home";
+ document.getElementById("view").innerHTML=VIEWS[v]();
+ var a=active(),cap=0;a.forEach(function(s){cap+=s.cap});
+ document.getElementById("hdr").textContent=cap?gb(cap)+" pool":"No pool yet";
+ document.querySelectorAll("nav button").forEach(function(b){if(b.dataset.v===v){b.setAttribute("aria-current","page")}else{b.removeAttribute("aria-current")}});
+}
+document.getElementById("nav").addEventListener("click",function(e){var b=e.target.closest("button");if(b){location.hash=b.dataset.v;render()}});
+document.getElementById("view").addEventListener("click",function(e){
+ var t=e.target.closest("button");if(!t)return;
+ if(t.dataset.up){document.getElementById("pick").click();return}
+ if(t.dataset.dl){downloadFile(+t.dataset.dl);return}
+ if(t.dataset.acc==="mega"){
+  if(rt.mega){try{rt.mega.st.close()}catch(x){}rt.mega=null;ui.form=false}else{ui.form=!ui.form;ui.pform=false;ui.kform=false;ui.err=""}
+  render();return;
+ }
+ if(t.dataset.acc==="pcloud"){
+  if(rt.pcloud){try{fetch("https://"+rt.pcloud.host+"/logout?auth="+encodeURIComponent(rt.pcloud.auth))}catch(x){}rt.pcloud=null;ui.pform=false}else{ui.pform=!ui.pform;ui.form=false;ui.kform=false;ui.perr=""}
+  render();return;
+ }
+ if(t.dataset.acc==="koofr"){
+  if(rt.koofr){rt.koofr=null;ui.kform=false}else{ui.kform=!ui.kform;ui.form=false;ui.pform=false;ui.kerr=""}
+  render();return;
+ }
+ if(t.dataset.acc){state.connected[t.dataset.acc]=!state.connected[t.dataset.acc]}
+ else if(t.id==="wifi"){state.wifi=!state.wifi}else return;
+ save();render();
+});
+document.getElementById("view").addEventListener("submit",function(e){e.preventDefault();var f=e.target;
+ if(f.id==="kform"){ui.kemail=f.elements.email.value.trim();kfLogin(ui.kemail,f.elements.password.value)}
+ else if(f.id==="pcform"){ui.pemail=f.elements.email.value.trim();pcLogin(ui.pemail,f.elements.password.value,f.elements.code.value.trim())}
+ else{ui.email=f.elements.email.value.trim();megaLogin(ui.email,f.elements.password.value)}
+});
+document.getElementById("view").addEventListener("change",function(e){
+ if(e.target.id==="rule"){state.rule=e.target.value;save()}
+ else if(e.target.id==="pick"){var l=Array.prototype.slice.call(e.target.files);e.target.value="";uploadFiles(l)}
+});
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>
